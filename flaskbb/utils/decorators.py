@@ -12,15 +12,14 @@ from functools import wraps
 
 from flask import abort
 from flask_login import current_user
+from flaskbb.exceptions import AuthorizationRequired
 
 
-def admin_required(f):
+def admin_required(f, current_user=current_user):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if current_user.is_anonymous():
-            abort(403)
-        if not current_user.permissions['admin']:
-            abort(403)
+        if current_user.is_anonymous() or not current_user.permissions['admin']:
+            raise AuthorizationRequired()
         return f(*args, **kwargs)
     return decorated
 
