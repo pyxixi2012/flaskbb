@@ -7,11 +7,14 @@ from flaskbb.utils.populate import create_default_groups, \
     create_default_settings
 
 
-@pytest.yield_fixture(autouse=True)
-def application():
+@pytest.fixture(scope='session')
+def app():
     """application with context."""
-    app = create_app(Config)
+    return create_app(Config)
 
+
+@pytest.yield_fixture(autouse=True)
+def application(app):
     ctx = app.app_context()
     ctx.push()
 
