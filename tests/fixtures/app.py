@@ -13,8 +13,8 @@ def app():
     return create_app(Config)
 
 
-@pytest.yield_fixture(autouse=True)
-def application(app):
+@pytest.yield_fixture()
+def app_context(app):
     ctx = app.app_context()
     ctx.push()
 
@@ -35,10 +35,12 @@ def default_settings(database):
     return create_default_settings()
 
 
+# maybe even do it once per session...
+# can't use the app_context fixture because a "scope mismatch"
+# we manually instate context ourselves
 @pytest.yield_fixture()
-def database():
-    """database setup."""
-    db.create_all()  # Maybe use migration instead?
+def database(app_context, request):
+    db.create_all()
 
     yield db
 

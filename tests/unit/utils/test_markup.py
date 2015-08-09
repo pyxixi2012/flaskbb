@@ -5,7 +5,7 @@ def test_collect_emojis():
     assert collect_emojis() == EMOJIS
 
 
-def test_custom_renderer():
+def test_custom_renderer(app_context):
     # custom paragraph
     p_expected = "<p><a href='/user/sh4nks'>@sh4nks</a> is :developing: <img class='emoji' alt='flaskbb' src='http://localhost:5000/static/emoji/flaskbb.png' />.</p>\n"
     p_plain = "@sh4nks is :developing: :flaskbb:."
