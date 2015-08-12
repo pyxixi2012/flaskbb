@@ -73,6 +73,12 @@ class Group(db.Model, CRUDMixin):
     def get_guest_group(cls):
         return Group.query.filter(cls.guest == True).first()
 
+    @classmethod
+    def get_member_groups(cls):
+        filt = db.and_(*[db.not_(getattr(cls, p)) for p in
+                         ['admin', 'mod', 'super_mod', 'banned', 'guest']])
+        return cls.query.filter(filt).all()
+
 
 class User(db.Model, UserMixin, CRUDMixin):
     __tablename__ = "users"
