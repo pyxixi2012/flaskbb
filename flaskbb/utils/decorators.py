@@ -9,8 +9,6 @@
     :license: BSD, see LICENSE for more details.
 """
 from functools import wraps
-
-from flask import abort
 from flask_login import current_user
 from flaskbb.exceptions import AuthorizationRequired
 
@@ -24,22 +22,18 @@ def admin_required(f, current_user=current_user):
     return decorated
 
 
-def moderator_required(f):
+def moderator_required(f, current_user=current_user):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if current_user.is_anonymous():
-            abort(403)
-
-        if not any([current_user.permissions['admin'],
-                    current_user.permissions['super_mod'],
-                    current_user.permissions['mod']]):
-            abort(403)
+        if current_user.is_anonymous() or \
+               not any([current_user.permissions[p] for p in ['admin', 'mod', 'super_mod']]):
+            raise AuthorizationRequired()
 
         return f(*args, **kwargs)
     return decorated
 
 
-def can_access_forum(func):
+def can_access_forum(func, current_user=current_user):
     def decorated(*args, **kwargs):
         forum_id = kwargs['forum_id'] if 'forum_id' in kwargs else args[1]
         from flaskbb.forum.models import Forum
@@ -56,13 +50,13 @@ def can_access_forum(func):
         ).all()
 
         if len(user_forums) < 1:
-            abort(403)
+            raise AuthorizationRequired()
 
         return func(*args, **kwargs)
     return decorated
 
 
-def can_access_topic(func):
+def can_access_topic(func, current_user=current_user):
     def decorated(*args, **kwargs):
         topic_id = kwargs['topic_id'] if 'topic_id' in kwargs else args[1]
         from flaskbb.forum.models import Forum, Topic
@@ -81,7 +75,7 @@ def can_access_topic(func):
         ).all()
 
         if len(user_forums) < 1:
-            abort(403)
+            raise AuthorizationRequired()
 
         return func(*args, **kwargs)
     return decorated
