@@ -18,50 +18,54 @@ from flask_babelex import gettext as _
 
 from flaskbb.extensions import db
 from flaskbb.utils.settings import flaskbb_config
-from flaskbb.utils.helpers import (get_online_users, time_diff, format_quote,
+from flaskbb.utils.helpers import (time_diff, format_quote,
                                    render_template, do_topic_action)
 from flaskbb.utils.permissions import (can_post_reply, can_post_topic,
                                        can_delete_topic, can_delete_post,
                                        can_edit_post, can_moderate)
+from flaskbb.utils.views import RenderableView
+from flask.views import View, MethodView
 from flaskbb.forum.models import (Category, Forum, Topic, Post, ForumsRead,
                                   TopicsRead)
 from flaskbb.forum.forms import (QuickreplyForm, ReplyForm, NewTopicForm,
                                  ReportForm, UserSearchForm, SearchPageForm)
 from flaskbb.user.models import User
+from flaskbb import services
 
 forum = Blueprint("forum", __name__)
 
 
-@forum.route("/")
 def index():
     categories = Category.get_all(user=current_user)
+    user_count = User.total_users()
+    topic_count = Topic.total_topics()
+    post_count = Post.total_posts()
+    newest_user = User.newest_user()
 
-    # Fetch a few stats about the forum
-    user_count = User.query.count()
-    topic_count = Topic.query.count()
-    post_count = Post.query.count()
-    newest_user = User.query.order_by(User.id.desc()).first()
+    online_users, online_guests = services.user.get_online(count_only=True)
 
-    # Check if we use redis or not
-    if not current_app.config["REDIS_ENABLED"]:
-        online_users = User.query.filter(User.lastseen >= time_diff()).count()
+    return dict(categories=categories, user_count=user_count,
+                topic_count=topic_count, post_count=post_count,
+                newest_user=newest_user, online_users=online_users,
+                online_guests=online_guests)
 
-        # Because we do not have server side sessions, we cannot check if there
-        # are online guests
-        online_guests = None
-    else:
-        online_users = len(get_online_users())
-        online_guests = len(get_online_users(guest=True))
 
-    return render_template("forum/index.html",
-                           categories=categories,
-                           user_count=user_count,
-                           topic_count=topic_count,
-                           post_count=post_count,
-                           newest_user=newest_user,
-                           online_users=online_users,
-                           online_guests=online_guests)
+def who_is_online():
+    online_users, _ = services.user.get_online()
+    return dict(online_users=online_users)
 
+
+forum.add_url_rule('/who-is-online', 'who_is_online',
+                   RenderableView.as_view(
+                       'who_is_online', template='forum/online_users.html',
+                       controller=who_is_online))
+
+
+forum.add_url_rule('/', 'index',
+                   RenderableView.as_view(
+                       'index', template='forum/index.html',
+                       controller=index)
+                   )
 
 @forum.route("/category/<int:category_id>")
 @forum.route("/category/<int:category_id>-<slug>")
@@ -531,14 +535,6 @@ def markread(forum_id=None, slug=None):
     return redirect(url_for("forum.index"))
 
 
-@forum.route("/who-is-online")
-def who_is_online():
-    if current_app.config['REDIS_ENABLED']:
-        online_users = get_online_users()
-    else:
-        online_users = User.query.filter(User.lastseen >= time_diff()).all()
-    return render_template("forum/online_users.html",
-                           online_users=online_users)
 
 
 @forum.route("/memberlist", methods=['GET', 'POST'])
