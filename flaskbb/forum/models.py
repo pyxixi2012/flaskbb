@@ -147,6 +147,10 @@ class Post(db.Model, CRUDMixin):
     date_modified = db.Column(db.DateTime)
     modified_by = db.Column(db.String(200))
 
+    @classmethod
+    def total_posts(cls):
+        return cls.query.with_entities(cls.id).count()
+
     # Properties
     @property
     def url(self):
@@ -551,6 +555,10 @@ class Topic(db.Model, CRUDMixin):
 
         db.session.commit()
         return self
+
+    @classmethod
+    def total_topics(cls):
+        return cls.query.with_entities(cls.id).count()
 
 
 class Forum(db.Model, CRUDMixin):

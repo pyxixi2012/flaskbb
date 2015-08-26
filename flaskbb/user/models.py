@@ -20,10 +20,11 @@ from flaskbb._compat import max_integer
 from flaskbb.extensions import db, cache
 from flaskbb.utils.settings import flaskbb_config
 from flaskbb.utils.database import CRUDMixin
+from flaskbb.utils.helpers import time_diff
 from flaskbb.forum.models import (Post, Topic, topictracker, TopicsRead,
                                   ForumsRead)
 from flaskbb.message.models import Conversation
-
+from flaskbb.utils.descriptors import classproperty
 
 groups_users = db.Table(
     'groups_users',
@@ -78,6 +79,13 @@ class Group(db.Model, CRUDMixin):
         filt = db.and_(*[db.not_(getattr(cls, p)) for p in
                          ['admin', 'mod', 'super_mod', 'banned', 'guest']])
         return cls.query.filter(filt).all()
+
+    member_groups = classproperty(get_member_groups.__func__)
+    guest_group = classproperty(get_guest_group.__func__)
+
+    @classproperty
+    def banned_group(cls):
+        return cls.query.filter(cls.banned==True).first()
 
 
 class User(db.Model, UserMixin, CRUDMixin):
@@ -460,6 +468,22 @@ class User(db.Model, UserMixin, CRUDMixin):
         db.session.commit()
 
         return self
+
+    @classmethod
+    def total_users(cls):
+        return cls.query.with_entities(cls.id).count()
+
+    @classmethod
+    def newest_user(cls):
+        return cls.query.order_by(User.id.desc()).first()
+
+    @classmethod
+    def online_users(cls):
+        return cls.query.filter(cls.lastseen >= time_diff())
+
+    @classmethod
+    def online_user_count(cls):
+        return cls.online_users().with_entities(cls.id).count()
 
 
 class Guest(AnonymousUserMixin):
