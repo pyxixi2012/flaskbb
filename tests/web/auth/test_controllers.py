@@ -7,15 +7,35 @@ except ImportError:
     import mock
 
 
+class FakeField(object):
+    def __init__(self, data):
+        self.data = data
+        self.errors = []
+
+
 class FakeForm(object):
     def __init__(self, username, email, password, valid=True):
-        self.data = {'username': username, 'email': email,
-                     'password': password}
+        self.username = FakeField(username)
+        self.password = FakeField(password)
+        self.email = FakeField(email)
         self.valid = valid
-        self.errors = {}
 
     def validate_on_submit(self):
         return self.valid
+
+    @property
+    def errors(self):
+        errors = {'username': self.username.errors,
+                  'email': self.email.errors,
+                  'password': self.password.errors}
+
+        return {k: v for k, v in errors.items() if v}
+
+    @property
+    def data(self):
+        return {'username': self.username.data,
+                'email': self.email.data,
+                'password': self.password.data}
 
     def __call__(self):
         return self

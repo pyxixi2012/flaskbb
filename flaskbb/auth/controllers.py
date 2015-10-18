@@ -10,8 +10,9 @@
 
 
 from ..exceptions import ValidationError
-from flask import render_template, url_for, redirect
+from flask import url_for, redirect
 from flask.views import MethodView
+from flaskbb.utils.helpers import render_template
 
 
 class RegisterUser(MethodView):
@@ -20,6 +21,9 @@ class RegisterUser(MethodView):
         self._registrar = registrar
         self._template = template
         self._redirect_url = redirect_url
+
+    def get(self):
+        return self._render()
 
     def post(self):
         if not self._form.validate_on_submit():
@@ -40,7 +44,8 @@ class RegisterUser(MethodView):
         return render_template(self._template, form=self._form)
 
     def _redirect(self):
-        return redirect(url_for(self._redirect_url))
+        return redirect(url_for(self._redirect_url, username=self._form.username.data))
 
     def _handle_error(self, exc):
-        self._form.errors[exc.field] = [exc.msg]
+        field = getattr(self._form, exc.field)
+        field.errors = [exc.msg]
