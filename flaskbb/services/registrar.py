@@ -11,14 +11,12 @@
 
 
 class Registrar(object):
-    def __init__(self, hasher, validator, repository, factory):
-        self._hasher = hasher
+    def __init__(self, validator, repository, factory):
         self._validator = validator
         self._repository = repository
         self._factory = factory
 
     def register(self, username, email, password, **kwargs):
-        password = self._hasher(password)
         user = self._factory(username=username, email=email, password=password, **kwargs)
         self._validator(user)
         self._repository.persist(user)

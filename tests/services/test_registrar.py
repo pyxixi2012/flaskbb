@@ -19,10 +19,6 @@ def has_call_counter(func):
     return counter
 
 
-def hash_password(password):
-    return password
-
-
 def validate_user(user):
     return user
 
@@ -47,18 +43,12 @@ class TestRegistrar(object):
     def setup(self):
         self.userdata = {'username': 'fred', 'email': 'fred@fred.com',
                          'password': 'fred'}
-        self.hasher = has_call_counter(hash_password)
         self.validator = has_call_counter(validate_user)
         self.user_factory = has_call_counter(user_factory)
         self.repository = FakeUserRepository()
-        self.registrar = Registrar(hasher=self.hasher, validator=self.validator,
+        self.registrar = Registrar(validator=self.validator,
                                    repository=self.repository,
                                    factory=self.user_factory)
-
-    def test_hashes_password(self):
-        self.registrar.register(**self.userdata)
-
-        assert self.hasher.calls == 1
 
     def test_creates_user_with_factory(self):
         self.registrar.register(**self.userdata)
