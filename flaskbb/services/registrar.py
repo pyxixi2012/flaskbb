@@ -22,3 +22,6 @@ class Registrar(object):
         user = self._factory(username=username, email=email, password=password, **kwargs)
         self._validator(user)
         self._repository.persist(user)
+
+    def __call__(self, username, email, password, **kwargs):
+        self.register(username, email, password, **kwargs)
