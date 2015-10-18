@@ -8,8 +8,6 @@
     :copyright: (c) 2014 by the FlaskBB Team.
     :license: BSD, see LICENSE for more details.
 """
-from datetime import datetime
-
 from flask_wtf import Form, RecaptchaField
 from wtforms import (StringField, PasswordField, BooleanField, HiddenField,
                      SubmitField, SelectField)
@@ -51,31 +49,11 @@ class RegisterForm(Form):
 
     confirm_password = PasswordField(_('Confirm Password'))
 
-
     language = SelectField(_('Language'))
 
     accept_tos = BooleanField(_("I accept the Terms of Service"), default=True)
 
     submit = SubmitField(_("Register"))
-
-    def validate_username(self, field):
-        user = User.query.filter_by(username=field.data).first()
-        if user:
-            raise ValidationError(_("This Username is already taken."))
-
-    def validate_email(self, field):
-        email = User.query.filter_by(email=field.data).first()
-        if email:
-            raise ValidationError(_("This E-Mail Address is already taken."))
-
-    def save(self):
-        user = User(username=self.username.data,
-                    email=self.email.data,
-                    password=self.password.data,
-                    date_joined=datetime.utcnow(),
-                    primary_group_id=4,
-                    language=self.language.data)
-        return user.save()
 
 
 class RegisterRecaptchaForm(RegisterForm):
