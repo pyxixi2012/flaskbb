@@ -2,9 +2,26 @@
 import datetime
 from flaskbb.utils.helpers import slugify, forum_is_unread, topic_is_unread, \
     crop_title, render_markup, is_online, format_date, format_quote, \
-    get_image_info, check_image
+    get_image_info, check_image, with_metaclass
 from flaskbb.utils.settings import flaskbb_config
 from flaskbb.forum.models import Forum
+
+class MetaTest(type):
+    pass
+
+
+def test_with_metalclass():
+    class Test(with_metaclass(MetaTest)):
+        pass
+
+    assert isinstance(Test, MetaTest)
+
+
+def test_with_metaclass_with_bases():
+    class Test(with_metaclass(MetaTest, str)):
+        pass
+
+    assert issubclass(Test, str)
 
 
 def test_slugify():

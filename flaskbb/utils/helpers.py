@@ -33,6 +33,23 @@ from flaskbb.utils.markup import markdown
 _punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
 
 
+def with_metaclass(meta, *bases):
+    """Allows metaclass compatibility between Python 2 and 3.
+
+    Based on Armin Ronacher's with_metaclass implementation
+    """
+    class metaclass(meta):
+        __call__ = type.__call__
+        __init__ = type.__init__
+
+        def __new__(cls, name, this_bases, d):
+            if this_bases is None:
+                return type.__new__(cls, name, (), d)
+            return meta(name, bases, d)
+
+    return metaclass('temp', None, {})
+
+
 def slugify(text, delim=u'-'):
     """Generates an slightly worse ASCII-only slug.
     Taken from the Flask Snippets page.
