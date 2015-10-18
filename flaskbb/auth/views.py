@@ -9,7 +9,7 @@
     :copyright: (c) 2014 by the FlaskBB Team.
     :license: BSD, see LICENSE for more details.
 """
-from flask import Blueprint, flash, redirect, url_for, request, current_app
+from flask import Blueprint, flash, redirect, url_for, request
 from flask_login import (current_user, login_user, login_required,
                          logout_user, confirm_login, login_fresh)
 from flask_babelex import gettext as _
@@ -19,10 +19,29 @@ from flaskbb.email import send_reset_token
 from flaskbb.auth.forms import (LoginForm, ReauthForm, ForgotPasswordForm,
                                 ResetPasswordForm)
 from flaskbb.user.models import User
-from flaskbb.fixtures.settings import available_languages
-from flaskbb.utils.settings import flaskbb_config
+from flaskbb.services.registrar import AfterRegister
+from flaskbb.dependencies import registrar as BaseRegistrar
+from .controllers import RegisterUser
+from .utils import disallow_authenticated, determine_register_form
+
 
 auth = Blueprint("auth", __name__)
+
+
+registrar = AfterRegister(
+    AfterRegister(BaseRegistrar,
+                  lambda u: flash(_('Thanks for registering!'), 'success')),
+    login_user)
+
+
+auth.add_url_rule(
+    rule='/register', endpoint='register',
+    view_func=disallow_authenticated(
+        RegisterUser.as_view(name='register',
+                             template='auth/register.html',
+                             redirect_url='user.profile',
+                             registrar=registrar,
+                             form=determine_register_form)))
 
 
 @auth.route("/login", methods=["GET", "POST"])
@@ -73,35 +92,6 @@ def logout():
     logout_user()
     flash(("Logged out"), "success")
     return redirect(url_for("forum.index"))
-
-
-@auth.route("/register", methods=["GET", "POST"])
-def register():
-    """
-    Register a new user
-    """
-
-    if current_user is not None and current_user.is_authenticated():
-        return redirect(url_for("user.profile", username=current_user.username))
-
-    if current_app.config["RECAPTCHA_ENABLED"]:
-        from flaskbb.auth.forms import RegisterRecaptchaForm
-        form = RegisterRecaptchaForm(request.form)
-    else:
-        from flaskbb.auth.forms import RegisterForm
-        form = RegisterForm(request.form)
-
-    form.language.choices = available_languages()
-    form.language.default = flaskbb_config['DEFAULT_LANGUAGE']
-    form.process()  # needed because a default is overriden
-
-    if form.validate_on_submit():
-        user = form.save()
-        login_user(user)
-
-        flash(_("Thanks for registering."), "success")
-        return redirect(url_for("user.profile", username=current_user.username))
-    return render_template("auth/register.html", form=form)
 
 
 @auth.route('/resetpassword', methods=["GET", "POST"])
