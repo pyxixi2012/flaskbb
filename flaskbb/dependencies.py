@@ -25,9 +25,10 @@ def create_user(**kwargs):
     kwargs.update({'primary_group_id': 4, 'date_joined': datetime.utcnow()})
     return User(**kwargs)
 
+
 UserRepository = SQLAUserRepository(db)
 
 user_validator = validate_many(is_email_free(UserRepository),
                                is_username_free(UserRepository))
 
-registar = Registrar(user_validator, UserRepository, create_user)
+registrar = Registrar(user_validator, UserRepository, create_user)
