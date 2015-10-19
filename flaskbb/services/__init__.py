@@ -9,3 +9,4 @@
 """
 
 from .registrar import Registrar
+from .authentication import PasswordAuth

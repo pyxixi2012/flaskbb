@@ -1,4 +1,4 @@
-from flaskbb.auth.controllers import RegisterUser
+from flaskbb.auth.controllers import RegisterUser, LoginUser
 from flaskbb.exceptions import ValidationError
 
 try:
@@ -13,7 +13,7 @@ class FakeField(object):
         self.errors = []
 
 
-class FakeForm(object):
+class FakeRegisterForm(object):
     def __init__(self, username, email, password, valid=True):
         self.username = FakeField(username)
         self.password = FakeField(password)
@@ -41,13 +41,33 @@ class FakeForm(object):
         return self
 
 
+class FakeLoginForm(object):
+    def __init__(self, login, password, remember_me=False, valid=True):
+        self.login = FakeField(login)
+        self.password = FakeField(password)
+        self.remember_me = FakeField(remember_me)
+        self.valid = valid
+
+    def validate_on_submit(self):
+        return self.valid
+
+    @property
+    def data(self):
+        return {'login': self.login.data,
+                'password': self.password.data,
+                'remember_me': self.remember_me.data}
+
+    def __call__(self):
+        return self
+
+
 def stingy_registrar(username, email, password):
     raise ValidationError('Fails validation', 'username')
 
 
 class TestRegisterUser(object):
     def setup(self):
-        self.form = FakeForm('fred', 'fred', 'fred')
+        self.form = FakeRegisterForm('fred', 'fred', 'fred')
         self.generous_registrar = lambda *a, **k: None
         self.stingy_registrar = stingy_registrar
 
@@ -84,3 +104,39 @@ class TestRegisterUser(object):
             controller.post()
 
         assert redirect.call_count == 1
+
+
+class TestLoginUser(object):
+    def test_submit_valid_data(self):
+        form = FakeLoginForm('fred', 'fred', False, True)
+        authenticator = mock.Mock()
+        controller = LoginUser(form, authenticator, None, None)
+
+        with mock.patch.object(LoginUser, '_redirect'):
+            controller.post()
+
+        assert (authenticator.authenticate.call_args ==
+                mock.call(login='fred', password='fred', remember_me=False))
+
+    def test_submit_invalid_data(self):
+        form = FakeLoginForm('fred', 'fred', False, False)
+        authenticator = mock.Mock()
+        controller = LoginUser(form, authenticator, None, None)
+
+        with mock.patch.object(controller, '_render') as render:
+            controller.post()
+
+        assert render.call_count == 1
+
+    def test_authenticator_fails(self):
+        form = FakeLoginForm('fred', 'fred', False, True)
+        error = ValidationError('Failed')
+        authenticator = mock.Mock()
+        authenticator.authenticate.side_effect = error
+        controller = LoginUser(form, authenticator, None, None)
+
+        with mock.patch.object(controller, '_handle_error') as handler, mock.patch.object(controller, '_render') as render:
+            controller.post()
+
+        assert handler.call_args == mock.call(error)
+        assert render.call_count == 1

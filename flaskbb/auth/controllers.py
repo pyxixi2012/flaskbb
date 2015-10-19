@@ -10,9 +10,11 @@
 
 
 from ..exceptions import ValidationError
-from flask import url_for, redirect
+from ..utils.helpers import render_template
+
+from flask import url_for, redirect, flash
 from flask.views import MethodView
-from flaskbb.utils.helpers import render_template
+from flask_babelex import gettext as _
 
 
 class RegisterUser(MethodView):
@@ -49,3 +51,38 @@ class RegisterUser(MethodView):
     def _handle_error(self, exc):
         field = getattr(self._form, exc.field)
         field.errors = [exc.msg]
+
+
+class LoginUser(MethodView):
+    def __init__(self, form, authenticator, template, redirect_endpoint):
+        self._form = form()
+        self._authenticator = authenticator
+        self._template = template
+        self._redirect_endpoint = redirect_endpoint
+
+    def get(self):
+        return self._render()
+
+    def post(self):
+        if not self._form.validate_on_submit():
+            return self._render()
+        else:
+            return self._authenticate()
+
+    def _authenticate(self):
+        try:
+            self._authenticator.authenticate(**self._form.data)
+        except ValidationError as e:
+            self._handle_error(e)
+            return self._render()
+        else:
+            return self._redirect()
+
+    def _render(self):
+        return render_template(self._template, form=self._form)
+
+    def _redirect(self):
+        return redirect(url_for(self._redirect_endpoint))
+
+    def _handle_error(self, e):
+        flash(_(e.msg))

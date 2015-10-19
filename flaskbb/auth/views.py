@@ -20,8 +20,10 @@ from flaskbb.auth.forms import (LoginForm, ReauthForm, ForgotPasswordForm,
                                 ResetPasswordForm)
 from flaskbb.user.models import User
 from flaskbb.services.registrar import AfterRegister
-from flaskbb.dependencies import registrar as BaseRegistrar
-from .controllers import RegisterUser
+from flaskbb.services.authentication import AfterAuth
+from flaskbb.dependencies import (registrar as BaseRegistrar,
+                                  password_auth as BasePasswordAuth)
+from .controllers import RegisterUser, LoginUser
 from .utils import disallow_authenticated, determine_register_form
 
 
@@ -33,6 +35,9 @@ registrar = AfterRegister(
                   lambda u: flash(_('Thanks for registering!'), 'success')),
     login_user)
 
+password_auth = AfterAuth(
+    BasePasswordAuth,
+    lambda u, **k: login_user(u, remember=k.get('remember_me', False)))
 
 auth.add_url_rule(
     rule='/register', endpoint='register',
@@ -44,28 +49,14 @@ auth.add_url_rule(
                              form=determine_register_form)))
 
 
-@auth.route("/login", methods=["GET", "POST"])
-def login():
-    """
-    Logs the user in
-    """
-
-    if current_user is not None and current_user.is_authenticated():
-        return redirect(url_for("user.profile"))
-
-    form = LoginForm(request.form)
-    if form.validate_on_submit():
-        user, authenticated = User.authenticate(form.login.data,
-                                                form.password.data)
-
-        if user and authenticated:
-            login_user(user, remember=form.remember_me.data)
-            return redirect(request.args.get("next") or
-                            url_for("forum.index"))
-
-        flash(_("Wrong Username or Password."), "danger")
-    return render_template("auth/login.html", form=form)
-
+auth.add_url_rule(
+    rule='/login', endpoint='login',
+    view_func=disallow_authenticated(
+        LoginUser.as_view(name='login',
+                          template='auth/login.html',
+                          redirect_endpoint='forum.index',
+                          form=LoginForm,
+                          authenticator=password_auth)))
 
 @auth.route("/reauth", methods=["GET", "POST"])
 @login_required
