@@ -18,11 +18,11 @@ from flask_babelex import gettext as _
 
 
 class RegisterUser(MethodView):
-    def __init__(self, form, registrar, template, redirect_url):
+    def __init__(self, form, registrar, template, redirect_endpoint):
         self._form = form()
         self._registrar = registrar
         self._template = template
-        self._redirect_url = redirect_url
+        self._redirect_endpoint = redirect_endpoint
 
     def get(self):
         return self._render()
@@ -46,7 +46,8 @@ class RegisterUser(MethodView):
         return render_template(self._template, form=self._form)
 
     def _redirect(self):
-        return redirect(url_for(self._redirect_url, username=self._form.username.data))
+        return redirect(url_for(self._redirect_endpoint,
+                                username=self._form.username.data))
 
     def _handle_error(self, exc):
         field = getattr(self._form, exc.field)

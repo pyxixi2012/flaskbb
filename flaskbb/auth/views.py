@@ -44,7 +44,7 @@ auth.add_url_rule(
     view_func=disallow_authenticated(
         RegisterUser.as_view(name='register',
                              template='auth/register.html',
-                             redirect_url='user.profile',
+                             redirect_endpoint='user.profile',
                              registrar=registrar,
                              form=determine_register_form)))
 
