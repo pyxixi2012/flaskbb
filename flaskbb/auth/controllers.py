@@ -12,7 +12,7 @@
 from ..exceptions import ValidationError
 from ..utils.helpers import render_template
 
-from flask import url_for, redirect, flash
+from flask import url_for, redirect, flash, request
 from flask.views import MethodView
 from flask_babelex import gettext as _
 
@@ -83,7 +83,8 @@ class LoginUser(MethodView):
         return render_template(self._template, form=self._form)
 
     def _redirect(self):
-        return redirect(url_for(self._redirect_endpoint))
+        endpoint = request.args.get('next') or url_for(self._redirect_endpoint)
+        return redirect(endpoint)
 
     def _handle_error(self, e):
         flash(_(e.msg))
