@@ -24,7 +24,7 @@ class PasswordAuth(object):
 
     def authenticate(self, login, password, **kwargs):
         user = self._finder(login)
-        if not self._checker(user.password, password):
+        if not user or not self._checker(user.password, password):
             raise ValidationError('Bad login credentials')
         return user
 
