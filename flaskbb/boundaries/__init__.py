@@ -7,4 +7,4 @@
     :license: BSD, see LICENSE for more details
 """
 
-from .authentication import AuthenticationBoundary, AuthenticatorBridge
+from .authentication import AuthenticationBoundary, AuthenticatorBridge, AfterAuth

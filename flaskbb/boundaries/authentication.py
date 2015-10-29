@@ -40,3 +40,34 @@ class AuthenticatorBridge(object):
             return self._listener.authentication_failed(e, *args, **kwargs)
         else:
             return self._listener.authentication_succeeded(user, *args, **kwargs)
+
+
+class AfterAuth(AuthenticationBoundary):
+    """Implements AuthenticationBoundary to perform some side-effect
+    after a successful or failed Authentication. This allows for pieces to
+    be easily glued together, such as performing a login or updating a
+    failed authentication count.
+
+    :param listener AuthenticationBoundary: The next listener in the chain
+    :param success callable: Callable to invoke after a successful authentication,
+        must accept a user object as well as any *args and **kwargs passed to the
+        authentication_succeeded method
+    :param fail callable: Callable to invoke after a failed authentication,
+        must accept an exception object as well as any *args and **kwargs
+        passed to the authentication_failed method.
+    """
+
+    def __init__(self, listener, success=None, fail=None):
+        self._listener = listener
+        self._success = success
+        self._fail = fail
+
+    def authentication_succeeded(self, user, *args, **kwargs):
+        if self._success:
+            self._success(user, *args, **kwargs)
+        return self._listener.authentication_succeeded(user, *args, **kwargs)
+
+    def authentication_failed(self, error, *args, **kwargs):
+        if self._fail:
+            self._fail(error, *args, **kwargs)
+        return self._listener.authentication_failed(error, *args, **kwargs)

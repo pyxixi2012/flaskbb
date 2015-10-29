@@ -9,9 +9,21 @@
 """
 
 from ..exceptions import ValidationError
+from ..utils.helpers import with_metaclass
+from abc import ABCMeta, abstractmethod
 
 
-class PasswordAuth(object):
+class Authenticator(with_metaclass(ABCMeta, object)):
+    """Generic interface for Authenticators to implement.
+    The contract for Authenticators is they must either return some user object
+    or raise a flaskbb.exceptions.ValidationError if the user cannot be authenticated
+    """
+    @abstractmethod
+    def authenticate(self, *args, **kwargs):
+        pass
+
+
+class PasswordAuth(Authenticator):
     """Handles password based authentication
 
     :param checker callable: Callable to check password
@@ -22,26 +34,8 @@ class PasswordAuth(object):
         self._checker = checker
         self._finder = finder
 
-    def authenticate(self, login, password, **kwargs):
+    def authenticate(self, login, password, *args, **kwargs):
         user = self._finder(login)
         if not user or not self._checker(user.password, password):
             raise ValidationError('Bad login credentials')
-        return user
-
-
-class AfterAuth(object):
-    """Class matching Authenicate's protocol to provide handling
-    for any post-authentication behavior.
-
-    :param authenticator Authenicator: Object to delegate authentication to
-    :param after callable: Callable to handle post-authentication,
-        receives the retrieved user and all keyword arguments passed to it
-    """
-    def __init__(self, authenticator, after):
-        self._authenticator = authenticator
-        self._after = after
-
-    def authenticate(self, **kwargs):
-        user = self._authenticator.authenticate(**kwargs)
-        self._after(user, **kwargs)
         return user
