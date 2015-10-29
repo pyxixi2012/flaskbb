@@ -19,8 +19,10 @@ from flaskbb.email import send_reset_token
 from flaskbb.auth.forms import (LoginForm, ReauthForm, ForgotPasswordForm,
                                 ResetPasswordForm)
 from flaskbb.user.models import User
+
+
+from flaskbb.boundaries.authentication import AuthenticatorBridge, AfterAuth
 from flaskbb.services.registrar import AfterRegister
-from flaskbb.services.authentication import AfterAuth
 from flaskbb.dependencies import (registrar as BaseRegistrar,
                                   password_auth as BasePasswordAuth)
 from .controllers import RegisterUser, LoginUser
@@ -35,9 +37,15 @@ registrar = AfterRegister(
                   lambda u: flash(_('Thanks for registering!'), 'success')),
     login_user)
 
-password_auth = AfterAuth(
-    BasePasswordAuth,
-    lambda u, **k: login_user(u, remember=k.get('remember_me', False)))
+
+def auth_factory(listener):
+    return AuthenticatorBridge(
+        BasePasswordAuth,
+        AfterAuth(
+            listener,
+            success=lambda u, *a, **k: login_user(u, remember=k.get('remember_me', False))
+        ))
+
 
 auth.add_url_rule(
     rule='/register', endpoint='register',
@@ -56,7 +64,8 @@ auth.add_url_rule(
                           template='auth/login.html',
                           redirect_endpoint='forum.index',
                           form=LoginForm,
-                          authenticator=password_auth)))
+                          authenticator=auth_factory)))
+
 
 @auth.route("/reauth", methods=["GET", "POST"])
 @login_required

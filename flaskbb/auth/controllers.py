@@ -9,6 +9,7 @@
 """
 
 
+from ..boundaries import AuthenticationBoundary
 from ..exceptions import ValidationError
 from ..utils.helpers import render_template
 
@@ -54,10 +55,10 @@ class RegisterUser(MethodView):
         field.errors = [exc.msg]
 
 
-class LoginUser(MethodView):
+class LoginUser(MethodView, AuthenticationBoundary):
     def __init__(self, form, authenticator, template, redirect_endpoint):
         self._form = form()
-        self._authenticator = authenticator
+        self._authenticator = authenticator(self)
         self._template = template
         self._redirect_endpoint = redirect_endpoint
 
@@ -68,16 +69,14 @@ class LoginUser(MethodView):
         if not self._form.validate_on_submit():
             return self._render()
         else:
-            return self._authenticate()
+            return self._authenticator.authenticate(**self._form.data)
 
-    def _authenticate(self):
-        try:
-            self._authenticator.authenticate(**self._form.data)
-        except ValidationError as e:
-            self._handle_error(e)
-            return self._render()
-        else:
-            return self._redirect()
+    def authentication_failed(self, error, *args, **kwargs):
+        flash(_(error.msg))
+        return self._render()
+
+    def authentication_succeeded(self, user, *args, **kwargs):
+        return self._redirect()
 
     def _render(self):
         return render_template(self._template, form=self._form)
@@ -85,6 +84,3 @@ class LoginUser(MethodView):
     def _redirect(self):
         endpoint = request.args.get('next') or url_for(self._redirect_endpoint)
         return redirect(endpoint)
-
-    def _handle_error(self, e):
-        flash(_(e.msg))

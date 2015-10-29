@@ -1,4 +1,6 @@
 from flaskbb.auth.controllers import RegisterUser, LoginUser
+from flaskbb.boundaries import AuthenticatorBridge
+from flaskbb.services.authentication import Authenticator
 from flaskbb.exceptions import ValidationError
 
 try:
@@ -13,15 +15,20 @@ class FakeField(object):
         self.errors = []
 
 
-class FakeRegisterForm(object):
+class FakeForm(object):
+    def validate_on_submit(self):
+        return self.valid
+
+    def __call__(self):
+        return self
+
+
+class FakeRegisterForm(FakeForm):
     def __init__(self, username, email, password, valid=True):
         self.username = FakeField(username)
         self.password = FakeField(password)
         self.email = FakeField(email)
         self.valid = valid
-
-    def validate_on_submit(self):
-        return self.valid
 
     @property
     def errors(self):
@@ -37,19 +44,13 @@ class FakeRegisterForm(object):
                 'email': self.email.data,
                 'password': self.password.data}
 
-    def __call__(self):
-        return self
 
-
-class FakeLoginForm(object):
+class FakeLoginForm(FakeForm):
     def __init__(self, login, password, remember_me=False, valid=True):
         self.login = FakeField(login)
         self.password = FakeField(password)
         self.remember_me = FakeField(remember_me)
         self.valid = valid
-
-    def validate_on_submit(self):
-        return self.valid
 
     @property
     def data(self):
@@ -57,8 +58,11 @@ class FakeLoginForm(object):
                 'password': self.password.data,
                 'remember_me': self.remember_me.data}
 
-    def __call__(self):
-        return self
+    def errors(self):
+        errors = {'login': self.login.errors,
+                  'password': self.password.errors}
+
+        return {k: v for k, v in errors.items() if v}
 
 
 def stingy_registrar(username, email, password):
@@ -107,21 +111,23 @@ class TestRegisterUser(object):
 
 
 class TestLoginUser(object):
-    def test_submit_valid_data(self):
-        form = FakeLoginForm('fred', 'fred', False, True)
-        authenticator = mock.Mock()
-        controller = LoginUser(form, authenticator, None, None)
+    def setup(self):
+        self.form = FakeLoginForm('fred', 'fred')
+        self.authenticator = mock.create_autospec(Authenticator)
+        self.bridge = lambda l: AuthenticatorBridge(self.authenticator, l)
 
-        with mock.patch.object(LoginUser, '_redirect'):
+    def test_submit_valid_data(self):
+        controller = LoginUser(self.form, self.bridge, None, None)
+        self.authenticator.authenticate.return_value = 'Fred'
+
+        with mock.patch.object(controller, 'authentication_succeeded') as succeed:
             controller.post()
 
-        assert (authenticator.authenticate.call_args ==
-                mock.call(login='fred', password='fred', remember_me=False))
+        assert succeed.call_args == mock.call('Fred', **self.form.data)
 
     def test_submit_invalid_data(self):
-        form = FakeLoginForm('fred', 'fred', False, False)
-        authenticator = mock.Mock()
-        controller = LoginUser(form, authenticator, None, None)
+        self.form.valid = False
+        controller = LoginUser(self.form, self.bridge, None, None)
 
         with mock.patch.object(controller, '_render') as render:
             controller.post()
@@ -129,14 +135,11 @@ class TestLoginUser(object):
         assert render.call_count == 1
 
     def test_authenticator_fails(self):
-        form = FakeLoginForm('fred', 'fred', False, True)
         error = ValidationError('Failed')
-        authenticator = mock.Mock()
-        authenticator.authenticate.side_effect = error
-        controller = LoginUser(form, authenticator, None, None)
+        self.authenticator.authenticate.side_effect = error
+        controller = LoginUser(self.form, self.bridge, None, None)
 
-        with mock.patch.object(controller, '_handle_error') as handler, mock.patch.object(controller, '_render') as render:
+        with mock.patch.object(controller, 'authentication_failed') as failed:
             controller.post()
 
-        assert handler.call_args == mock.call(error)
-        assert render.call_count == 1
+        assert failed.call_args == mock.call(error, **self.form.data)
