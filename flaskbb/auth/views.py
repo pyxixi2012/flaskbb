@@ -22,7 +22,7 @@ from flaskbb.user.models import User
 
 
 from flaskbb.boundaries.authentication import AuthenticatorBridge, AfterAuth
-from flaskbb.services.registrar import AfterRegister
+from flaskbb.boundaries.registration import RegistrationBridge, AfterRegistration
 from flaskbb.dependencies import (registrar as BaseRegistrar,
                                   password_auth as BasePasswordAuth)
 from .controllers import RegisterUser, LoginUser
@@ -32,10 +32,15 @@ from .utils import disallow_authenticated, determine_register_form
 auth = Blueprint("auth", __name__)
 
 
-registrar = AfterRegister(
-    AfterRegister(BaseRegistrar,
-                  lambda u: flash(_('Thanks for registering!'), 'success')),
-    login_user)
+def registrar(listener):
+    return RegistrationBridge(
+        BaseRegistrar,
+        AfterRegistration(
+            AfterRegistration(
+                listener=listener,
+                success=lambda u, *a, **k: flash(_('Thanks for registering!'),
+                                                 'success')),
+            success=lambda u, *a, **k: login_user(u)))
 
 
 def auth_factory(listener):

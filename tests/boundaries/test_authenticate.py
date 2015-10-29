@@ -29,6 +29,7 @@ class TestAuthenticationBridge(object):
 
         assert self.listener.authentication_failed.call_args == mock.call(error)
 
+
 class TestAfterAuth(object):
     def setup(self):
         self.listener = mock.create_autospec(AuthenticationBoundary)
@@ -41,17 +42,7 @@ class TestAfterAuth(object):
         self.after_auth.authentication_succeeded('Fred')
         assert self.success_handler.call_args == mock.call('Fred')
 
-    def test_recieves_success_with_no_handler(self):
-        self.success_handler.__bool__.return_value = False
-        self.after_auth.authentication_succeeded('Fred')
-        assert not self.success_handler.call_count
-
     def test_recieves_failure_with_handler(self):
         error = ValidationError('Nope')
         self.after_auth.authentication_failed(error)
         assert self.failure_handler.call_args == mock.call(error)
-
-    def test_recieves_failure_with_no_handler(self):
-        self.failure_handler.__bool__.return_value = False
-        self.after_auth.authentication_failed(None)
-        assert not self.failure_handler.call_count

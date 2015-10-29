@@ -8,7 +8,7 @@
     :license: BSD, see LICENSE for more details
 """
 
-from .services import Registrar, PasswordAuth
+from .services import BasicUserRegistrar, PasswordAuth
 from .validators.helpers import validate_many
 from .validators.user import is_email_free, is_username_free
 from .repository.sqla import SQLAUserRepository
@@ -32,11 +32,12 @@ def find_by_username_or_email(user_repository):
                 user_repository.find_by_email(login))
     return finder
 
+
 UserRepository = SQLAUserRepository(db)
 
 user_validator = validate_many(is_email_free(UserRepository),
                                is_username_free(UserRepository))
 
-registrar = Registrar(user_validator, UserRepository, create_user)
+registrar = BasicUserRegistrar(user_validator, UserRepository, create_user)
 password_auth = PasswordAuth(check_password_hash,
                              find_by_username_or_email(UserRepository))

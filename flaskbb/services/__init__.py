@@ -8,5 +8,5 @@
     :license: BSD, see LICENSE for more details
 """
 
-from .registrar import Registrar
+from .registrar import BasicUserRegistrar
 from .authentication import PasswordAuth

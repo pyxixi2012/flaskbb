@@ -9,8 +9,17 @@
     :license: BSD, see LICENSE for more details
 """
 
+from abc import ABCMeta, abstractmethod
+from ..utils.helpers import with_metaclass
 
-class Registrar(object):
+
+class Registrar(with_metaclass(ABCMeta, object)):
+    @abstractmethod
+    def register(self, *args, **kwargs):
+        pass
+
+
+class BasicUserRegistrar(Registrar):
     def __init__(self, validator, repository, factory):
         self._validator = validator
         self._repository = repository
@@ -24,17 +33,3 @@ class Registrar(object):
 
     def __call__(self, username, email, password, **kwargs):
         return self.register(username, email, password, **kwargs)
-
-
-class AfterRegister(object):
-    def __init__(self, registrar, after):
-        self._registrar = registrar
-        self._after = after
-
-    def register(self, *args, **kwargs):
-        user = self._registrar(*args, **kwargs)
-        self._after(user)
-        return user
-
-    def __call__(self, *args, **kwargs):
-        return self.register(*args, **kwargs)

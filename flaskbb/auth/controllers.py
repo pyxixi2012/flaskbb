@@ -9,8 +9,7 @@
 """
 
 
-from ..boundaries import AuthenticationBoundary
-from ..exceptions import ValidationError
+from ..boundaries import AuthenticationBoundary, RegistrationBoundary
 from ..utils.helpers import render_template
 
 from flask import url_for, redirect, flash, request
@@ -18,10 +17,10 @@ from flask.views import MethodView
 from flask_babelex import gettext as _
 
 
-class RegisterUser(MethodView):
+class RegisterUser(MethodView, RegistrationBoundary):
     def __init__(self, form, registrar, template, redirect_endpoint):
         self._form = form()
-        self._registrar = registrar
+        self._registrar = registrar(self)
         self._template = template
         self._redirect_endpoint = redirect_endpoint
 
@@ -32,16 +31,14 @@ class RegisterUser(MethodView):
         if not self._form.validate_on_submit():
             return self._render()
         else:
-            return self._register_user()
+            return self._registrar.register(**self._form.data)
 
-    def _register_user(self):
-        try:
-            self._registrar(**self._form.data)
-        except ValidationError as e:
-            self._handle_error(e)
-            return self._render()
-        else:
-            return self._redirect()
+    def registration_succeeded(self, user, *args, **kwargs):
+        return self._redirect()
+
+    def registration_failed(self, error, *args, **kwargs):
+        self._handle_error(error)
+        return self._render()
 
     def _render(self):
         return render_template(self._template, form=self._form)
