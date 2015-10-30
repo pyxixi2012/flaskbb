@@ -24,6 +24,12 @@ from flaskbb.user.forms import (ChangePasswordForm, ChangeEmailForm,
 user = Blueprint("user", __name__)
 
 
+@user.route('/me')
+@login_required
+def me():
+    return render_template('user/profile.html', user=current_user)
+
+
 @user.route("/<username>")
 def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
