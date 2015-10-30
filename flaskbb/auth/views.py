@@ -25,7 +25,7 @@ from flaskbb.boundaries.authentication import AuthenticatorBridge, AfterAuth
 from flaskbb.boundaries.registration import RegistrationBridge, AfterRegistration
 from flaskbb.dependencies import (registrar as BaseRegistrar,
                                   password_auth as BasePasswordAuth)
-from .controllers import RegisterUser, LoginUser
+from .controllers import RegisterUser, AuthenticateUser
 from .utils import disallow_authenticated, determine_register_form
 
 
@@ -38,8 +38,7 @@ def registrar(listener):
         AfterRegistration(
             AfterRegistration(
                 listener=listener,
-                success=lambda u, *a, **k: flash(_('Thanks for registering!'),
-                                                 'success')),
+                success=lambda *a, **k: flash(_('Thanks for registering!'), 'success')),
             success=lambda u, *a, **k: login_user(u)))
 
 
@@ -47,7 +46,9 @@ def auth_factory(listener):
     return AuthenticatorBridge(
         BasePasswordAuth,
         AfterAuth(
-            listener,
+            AfterAuth(
+                listener,
+                success=lambda *a, **k: flash(_('Welcome back!'), 'success')),
             success=lambda u, *a, **k: login_user(u, remember=k.get('remember_me', False))
         ))
 
@@ -65,12 +66,12 @@ auth.add_url_rule(
 auth.add_url_rule(
     rule='/login', endpoint='login',
     view_func=disallow_authenticated(
-        LoginUser.as_view(name='login',
-                          template='auth/login.html',
-                          redirect_endpoint='forum.index',
-                          form=LoginForm,
-                          authenticator=auth_factory)))
-
+        AuthenticateUser.as_view(
+            name='login',
+            template='auth/login.html',
+            redirect_endpoint='forum.index',
+            form=LoginForm,
+            authenticator=auth_factory)))
 
 @auth.route("/reauth", methods=["GET", "POST"])
 @login_required

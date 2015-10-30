@@ -1,4 +1,4 @@
-from flaskbb.auth.controllers import RegisterUser, LoginUser
+from flaskbb.auth.controllers import RegisterUser, AuthenticateUser
 from flaskbb.boundaries import AuthenticatorBridge, RegistrationBridge
 from flaskbb.services.authentication import Authenticator
 from flaskbb.services.registrar import Registrar
@@ -106,11 +106,11 @@ class TestRegisterUser(object):
         assert redirect.call_count == 1
 
 
-class TestLoginUser(object):
+class TestAuthenticateUser(object):
     def setup(self):
         self.form = FakeLoginForm('fred', 'fred')
         self.authenticator = mock.create_autospec(Authenticator)
-        self.controller = LoginUser(
+        self.controller = AuthenticateUser(
             self.form, lambda l: AuthenticatorBridge(self.authenticator, l),
             None, None)
 

@@ -52,7 +52,7 @@ class RegisterUser(MethodView, RegistrationBoundary):
         field.errors = [exc.msg]
 
 
-class LoginUser(MethodView, AuthenticationBoundary):
+class AuthenticateUser(MethodView, AuthenticationBoundary):
     def __init__(self, form, authenticator, template, redirect_endpoint):
         self._form = form()
         self._authenticator = authenticator(self)
