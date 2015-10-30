@@ -8,6 +8,9 @@
     :copyright: (c) 2014 by the FlaskBB Team.
     :license: BSD, see LICENSE for more details.
 """
+
+
+from ..utils.fields import HiddenUsernameField
 from flask_wtf import Form, RecaptchaField
 from wtforms import (StringField, PasswordField, BooleanField, HiddenField,
                      SubmitField, SelectField)
@@ -61,10 +64,12 @@ class RegisterRecaptchaForm(RegisterForm):
 
 
 class ReauthForm(Form):
-    password = PasswordField(_('Password'), valdidators=[
+    password = PasswordField(_('Password'), validators=[
         DataRequired(message=_("A Password is required."))])
 
     submit = SubmitField(_("Refresh Login"))
+
+    login = HiddenUsernameField()
 
 
 class ForgotPasswordForm(Form):

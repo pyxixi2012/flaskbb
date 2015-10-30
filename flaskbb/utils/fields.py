@@ -9,7 +9,9 @@
     :license: BSD, see LICENSE for more details.
 """
 from datetime import datetime
-from wtforms.fields import DateField
+from wtforms.fields import DateField, StringField
+from wtforms.widgets import HiddenInput
+from flask_login import current_user
 
 
 class BirthdayField(DateField):
@@ -32,3 +34,10 @@ class BirthdayField(DateField):
                 # A bit dirty though
                 if valuelist != ["None", "None", "None"]:
                     raise ValueError("Not a valid date value")
+
+
+class HiddenUsernameField(StringField):
+    widget = HiddenInput()
+
+    def process_formdata(self, valuelist):
+        self.data = current_user.username
