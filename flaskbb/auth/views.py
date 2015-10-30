@@ -56,11 +56,12 @@ def auth_factory(listener):
 auth.add_url_rule(
     rule='/register', endpoint='register',
     view_func=disallow_authenticated(
-        RegisterUser.as_view(name='register',
-                             template='auth/register.html',
-                             redirect_endpoint='user.profile',
-                             registrar=registrar,
-                             form=determine_register_form)))
+        RegisterUser.as_view(
+            name='register',
+            template='auth/register.html',
+            redirect_endpoint='user.me',
+            registrar=registrar,
+            form=determine_register_form)))
 
 
 auth.add_url_rule(
