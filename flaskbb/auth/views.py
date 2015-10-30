@@ -9,9 +9,9 @@
     :copyright: (c) 2014 by the FlaskBB Team.
     :license: BSD, see LICENSE for more details.
 """
-from flask import Blueprint, flash, redirect, url_for, request
+from flask import Blueprint, flash, redirect, url_for
 from flask_login import (current_user, login_user, login_required,
-                         logout_user, confirm_login, login_fresh)
+                         logout_user, confirm_login)
 from flask_babelex import gettext as _
 
 from flaskbb.utils.helpers import render_template
@@ -24,7 +24,8 @@ from flaskbb.user.models import User
 from flaskbb.boundaries.authentication import AuthenticatorBridge, AfterAuth
 from flaskbb.boundaries.registration import RegistrationBridge, AfterRegistration
 from flaskbb.dependencies import (registrar as BaseRegistrar,
-                                  password_auth as BasePasswordAuth)
+                                  password_auth as BasePasswordAuth,
+                                  password_reauth as BasePasswordReauth)
 from .controllers import RegisterUser, AuthenticateUser
 from .utils import disallow_authenticated, determine_register_form
 
@@ -53,6 +54,16 @@ def auth_factory(listener):
         ))
 
 
+def reauth_factory(listener):
+    return AuthenticatorBridge(
+        BasePasswordReauth,
+        AfterAuth(
+            AfterAuth(
+                listener,
+                success=lambda *a, **k: flash(_('Reauthenticated'), 'success')),
+            success=lambda *a, **k: confirm_login()))
+
+
 auth.add_url_rule(
     rule='/register', endpoint='register',
     view_func=disallow_authenticated(
@@ -74,23 +85,16 @@ auth.add_url_rule(
             form=LoginForm,
             authenticator=auth_factory)))
 
-@auth.route("/reauth", methods=["GET", "POST"])
-@login_required
-def reauth():
-    """
-    Reauthenticates a user
-    """
 
-    if not login_fresh():
-        form = ReauthForm(request.form)
-        if form.validate_on_submit():
-            confirm_login()
-            flash(_("Reauthenticated."), "success")
-            return redirect(request.args.get("next") or
-                            url_for("user.profile"))
-        return render_template("auth/reauth.html", form=form)
-    return redirect(request.args.get("next") or
-                    url_for("user.profile", username=current_user.username))
+auth.add_url_rule(
+    rule='/reauth', endpoint='reauth',
+    view_func=login_required(
+        AuthenticateUser.as_view(
+            name='reauth',
+            template='auth/reauth.html',
+            redirect_endpoint='user.me',
+            form=ReauthForm,
+            authenticator=reauth_factory)))
 
 
 @auth.route("/logout")

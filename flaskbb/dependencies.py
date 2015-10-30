@@ -15,6 +15,7 @@ from .repository.sqla import SQLAUserRepository
 from .extensions import db
 from .user.models import User
 
+from flask_login import current_user
 from werkzeug.security import check_password_hash
 from datetime import datetime
 
@@ -33,6 +34,11 @@ def find_by_username_or_email(user_repository):
     return finder
 
 
+def current_user_matcher(login):
+    if login == current_user.username or login == current_user.email:
+        return current_user
+
+
 UserRepository = SQLAUserRepository(db)
 
 user_validator = validate_many(is_email_free(UserRepository),
@@ -41,3 +47,5 @@ user_validator = validate_many(is_email_free(UserRepository),
 registrar = BasicUserRegistrar(user_validator, UserRepository, create_user)
 password_auth = PasswordAuth(check_password_hash,
                              find_by_username_or_email(UserRepository))
+
+password_reauth = PasswordAuth(check_password_hash, current_user_matcher)
