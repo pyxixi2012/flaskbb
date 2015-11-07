@@ -74,7 +74,7 @@ setup(
         'Flask-Themes2',
         'Flask-WTF',
         'Flask-WhooshAlchemy',
-        'Flask-BabelEx==0.10.1',
+        'FlaskBB-BabelEx==0.10.1',
         'Jinja2',
         'Mako',
         'MarkupSafe',
@@ -106,7 +106,7 @@ setup(
     ],
     dependency_links=[
         'https://github.com/jshipley/Flask-WhooshAlchemy/archive/master.zip#egg=Flask-WhooshAlchemy',
-        'https://github.com/justanr/flask-babelex/tarball/master#egg=flask-babelex-0.10.1'
+        'https://github.com/justanr/flaskbb-babelex/tarball/master#egg=flask-babelex-0.10.1'
 #        'https://github.com/sh4nks/flask-babelex/tarball/master#egg=Flask-BabelEx'
     ],
     classifiers=[
