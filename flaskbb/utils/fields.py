@@ -18,9 +18,10 @@ except ImportError:
     from urllib import request as http
 
 from flask import request, current_app, Markup, json
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from werkzeug import url_encode
 from wtforms import ValidationError
-from wtforms.fields import DateField, Field
+from wtforms.fields import DateField, Field, StringField
 from wtforms.widgets.core import Select, HTMLString, html_params
 
 from flaskbb._compat import to_bytes, to_unicode
@@ -245,3 +246,99 @@ class BirthdayField(DateField):
                 # A bit dirty though
                 if valuelist != ["None", "None", "None"]:
                     raise ValueError("Not a valid date value")
+
+
+class QuerySelector(object):
+    ONE = object()
+    FIRST = object()
+    ALL = object()
+    LAZY = object()
+
+    selectors = set([ONE, FIRST, ALL, LAZY])
+
+    _selector_map = {
+        ONE: lambda q: q.one(),
+        FIRST: lambda q: q.first(),
+        ALL: lambda q: q.all(),
+        LAZY: lambda q: q
+    }
+
+    @classmethod
+    def as_selector(cls, selector):
+        selector = cls._selector_map.get(selector, None)
+        if not selector:
+            raise ValueError("Invalid selector provided")
+        return selector
+
+
+class QueryField(Field):
+    """
+    Mixin that allows converting submitted form data into an automatically executed SQLAlchemy
+    query. Can be provided a query and model field, or a query factory:
+
+    class UserIDField(QueryField, IntegerField):
+        pass
+
+    class UserSelectForm(Form):
+        user = UserIDField(query=User.query, query_field=User.id, selector=QuerySelector.ONE)
+
+    form = UserSelectForm(formdata=MultiDict({'user': 1}))
+    form.user.data # <User 'username'>
+
+
+    class UserSelectForm(Form):
+        user = UserIDField(query_factory=lambda value: User.query.filter(User.id == value))
+
+    :param query: Flask-SQLAlchemy query that can be built off of
+    :param query_factory: Callable that accepts a single argument (the value on the field) and
+        returns a query
+    :param query_field: SQLAlchemy model field, only needed if query is provided.
+    :param selector: One of QuerySelector.ONE|FIRST|ALL|LAZY, defaults to None, only needed
+        if query is provided.
+    """
+
+    def __init__(self, label=None, validators=None, query_factory=None, **kwargs):
+        if not callable(query_factory):
+            raise ValueError("query_factory must be callable")
+
+        self.query_factory = query_factory
+        super(QueryField, self).__init__(label, validators, **kwargs)
+
+    def process_formdata(self, valuelist):
+        super(QueryField, self).process_formdata(valuelist)
+        if self.data:
+            try:
+                self.data = self.query_factory(self.data)
+            except NoResultFound:
+                raise ValueError('No results found for {!s}'.format(self.data))
+            except MultipleResultsFound:
+                raise ValueError('Too many results found for {!s}'.format(self.data))
+
+
+def query_field_factory(
+    model, field_name, selector=QuerySelector.FIRST, base_field=StringField, **kwargs
+):
+    model_field = getattr(model, field_name)
+    selector = QuerySelector.as_selector(selector)
+
+    def query_factory(value):
+        return selector(model.query.filter(model_field == value))
+
+    def __init__(self, label=None, validators=None, query_factory=query_factory, **kwargs):
+        super(type(self), self).__init__(
+            label=label,
+            validators=validators,
+            query_factory=query_factory,
+            **kwargs
+        )
+
+    def process_data(self, value):
+        if value:
+            self.data = getattr(value, field_name)
+
+    name = "{}{}Field".format(model.__name__, field_name.capitalize())
+    return type(
+        name,
+        (QueryField, base_field),
+        {"process_data": process_data, '__init__': __init__}
+    )

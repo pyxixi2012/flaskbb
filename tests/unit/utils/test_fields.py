@@ -1,7 +1,15 @@
 """Tests for the utils/fields.py file."""
 import pytest
+from werkzeug.datastructures import MultiDict
 from wtforms.form import Form
-from flaskbb.utils.fields import SelectBirthdayWidget, BirthdayField
+from flaskbb.user.models import User
+from flaskbb.utils.fields import (
+    BirthdayField,
+    query_field_factory,
+    QueryField,
+    QuerySelector,
+    SelectBirthdayWidget,
+)
 
 
 def test_birthday_field():
@@ -54,3 +62,31 @@ def test_select_birthday_widget():
     assert 'class="select_date_month"' in html
     assert 'class="select_date_year"' in html
     assert '<div class="test-div">' in html
+
+
+class TestQueryFieldMixin(object):
+    def test_fetchs_id_from_db_on_process(self, user):
+        class UserForm(Form):
+            user = query_field_factory(User, 'id', QuerySelector.FIRST)()
+
+        form = UserForm(formdata=MultiDict({'user': user.id}))
+
+        assert form.user.data == user
+
+    def test_multiple_results_found_is_process_error(self, user, moderator_user):
+        class UserForm(Form):
+            user = QueryField(query_factory=lambda v: User.query.one())
+
+        f = UserForm(formdata=MultiDict({'user': "doesn't matter"}))
+
+        assert not f.validate()
+        assert 'Too many results found for' in f.errors['user'][0]
+
+    def test_no_results_found_is_error(self, user):
+        class UserForm(Form):
+            user = QueryField(query_factory=lambda v: User.query.filter_by(id=v).one())
+
+        f = UserForm(formdata=MultiDict({'user': 9991}))
+
+        assert not f.validate()
+        assert 'No results found for' in f.errors['user'][0]
