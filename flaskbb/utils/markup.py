@@ -48,42 +48,49 @@ def collect_emojis():
 EMOJIS = collect_emojis()
 
 
+def emojify(match):
+    value = match.group(1)
+
+    if value in EMOJIS:
+        filename = url_for(
+            "static",
+            filename="emoji/{}".format(EMOJIS[value])
+        )
+
+        emoji = "<img class='{css}' alt='{alt}' src='{src}' />".format(
+            css="emoji", alt=value,
+            src=filename
+        )
+        return emoji
+    return match.group(0)
+
+
+def userify(match):
+    value = match.group(1)
+    user = "<a href='{url}'>@{user}</a>".format(
+        url=url_for("user.profile", username=value, _external=False),
+        user=value
+    )
+    return user
+
+
+
 class FlaskBBRenderer(mistune.Renderer):
     """Markdown with some syntetic sugar such as @user gets linked to the
     user's profile and emoji support.
     """
-    def __init__(self, **kwargs):
-        super(FlaskBBRenderer, self).__init__(**kwargs)
+
+    paragraph_processors = []
+
+    @classmethod
+    def register_paragraph_processor(cls, f):
+        cls.paragraph_processors.append(f)
+        return f
 
     def paragraph(self, text):
         """Rendering paragraph tags. Like ``<p>`` with emoji support."""
-
-        def emojify(match):
-            value = match.group(1)
-
-            if value in EMOJIS:
-                filename = url_for(
-                    "static",
-                    filename="emoji/{}".format(EMOJIS[value])
-                )
-
-                emoji = "<img class='{css}' alt='{alt}' src='{src}' />".format(
-                    css="emoji", alt=value,
-                    src=filename
-                )
-                return emoji
-            return match.group(0)
-
-        def userify(match):
-            value = match.group(1)
-            user = "<a href='{url}'>@{user}</a>".format(
-                url=url_for("user.profile", username=value, _external=False),
-                user=value
-            )
-            return user
-
-        text = _re_emoji.sub(emojify, text)
-        text = _re_user.sub(userify, text)
+        for processor in self.paragraph_processors:
+            text = processor(text)
 
         return '<p>%s</p>\n' % text.strip(' ')
 
@@ -94,6 +101,10 @@ class FlaskBBRenderer(mistune.Renderer):
         lexer = get_lexer_by_name(lang, stripall=True)
         formatter = HtmlFormatter()
         return highlight(code, lexer, formatter)
+
+FlaskBBRenderer.register_paragraph_processor(lambda text: _re_emoji.sub(emojify, text))
+FlaskBBRenderer.register_paragraph_processor(lambda text: _re_user.sub(userify, text))
+
 
 
 renderer = FlaskBBRenderer(escape=True, hard_wrap=True)
