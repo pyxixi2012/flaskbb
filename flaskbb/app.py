@@ -27,6 +27,9 @@ from flaskbb.management.views import management
 from flaskbb.forum.views import forum
 # models
 from flaskbb.user.models import User, Guest
+from flaskbb.forum.models import Category, Forum, Topic, Post
+from flaskbb.message.models import Conversation, Message
+from flaskbb.management.models import SettingsGroup
 # extensions
 from flaskbb.extensions import (db, login_manager, mail, cache, redis_store,
                                 debugtoolbar, alembic, themes, plugin_manager,
@@ -44,11 +47,16 @@ from flaskbb.utils.requirements import (IsAdmin, IsAtleastModerator,
                                         TplCanModerate, TplCanDeletePost,
                                         TplCanDeleteTopic, TplCanEditPost,
                                         TplCanPostTopic, TplCanPostReply)
+from flaskbb.utils.routing import model_converter
 # whooshees
 from flaskbb.utils.search import (PostWhoosheer, TopicWhoosheer,
                                   ForumWhoosheer, UserWhoosheer)
 # app specific configurations
 from flaskbb.utils.settings import flaskbb_config
+
+# routing help
+from werkzeug.routing import IntegerConverter, PathConverter
+
 
 
 def create_app(config=None):
@@ -71,7 +79,7 @@ def create_app(config=None):
     configure_before_handlers(app)
     configure_errorhandlers(app)
     configure_logging(app)
-
+    configure_url_converters(app)
     return app
 
 
@@ -96,6 +104,7 @@ def configure_app(app, config):
     # Parse the env for FLASKBB_ prefixed env variables and set
     # them on the config object
     app_config_from_env(app, prefix="FLASKBB_")
+
 
 
 def configure_celery_app(app, celery):
@@ -349,3 +358,20 @@ def configure_logging(app):
                                  parameters, context, executemany):
             total = time.time() - conn.info['query_start_time'].pop(-1)
             app.logger.debug("Total Time: %f", total)
+
+
+def configure_url_converters(app):
+    app.url_map.converters['user'] = model_converter(app, User, 'username')
+    app.url_map.converters['category'] = model_converter(
+        app, Category, 'id', base=IntegerConverter
+    )
+    app.url_map.converters['forum'] = model_converter(app, Forum, 'id', base=IntegerConverter)
+    app.url_map.converters['topic'] = model_converter(app, Topic, 'id', base=IntegerConverter)
+    app.url_map.converters['post'] = model_converter(app.Post, 'id', base=IntegerConverter)
+    app.url_map.converters['conversation'] = model_converter(
+        app, Conversation, 'id', base=IntegerConverter
+    )
+    app.url_map.converters['message'] = model_converter(app, Message, 'id', base=IntegerConverter)
+    app.url_map.converters['settings'] = model_converter(
+        app, SettingsGroup, 'key', base=PathConverter
+    )
