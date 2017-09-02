@@ -21,7 +21,7 @@ from PIL import ImageFile
 
 import requests
 import unidecode
-from flask import session, url_for, flash, redirect, request
+from flask import session, url_for, flash, request
 from jinja2 import Markup
 from babel.core import get_locale_identifier
 from babel.dates import format_timedelta as babel_format_timedelta
@@ -35,6 +35,7 @@ from flaskbb._compat import range_method, text_type, iteritems
 from flaskbb.extensions import redis_store, babel
 from flaskbb.utils.settings import flaskbb_config
 from flaskbb.utils.markup import markdown
+from flaskbb.utils.routing import redirect_or_next
 from flask_allows import Permission
 
 _punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
@@ -53,17 +54,6 @@ def slugify(text, delim=u'-'):
         if word:
             result.append(word)
     return text_type(delim.join(result))
-
-
-def redirect_or_next(endpoint, **kwargs):
-    """Redirects the user back to the page they were viewing or to a specified
-    endpoint. Wraps Flasks :func:`Flask.redirect` function.
-
-    :param endpoint: The fallback endpoint.
-    """
-    return redirect(
-        request.args.get('next') or endpoint, **kwargs
-    )
 
 
 def render_template(template, **context):  # pragma: no cover

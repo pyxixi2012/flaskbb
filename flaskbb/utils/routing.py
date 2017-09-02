@@ -9,7 +9,8 @@
     :license: BSD, see LICENSE for more details
 """
 
-from werkzeug.routing import UnicodeConverter, BaseConverter
+from flask import flash, redirect, request
+from werkzeug.routing import BaseConverter, UnicodeConverter
 
 
 class ModelConverter(BaseConverter):
@@ -34,9 +35,31 @@ class ModelConverter(BaseConverter):
 
 
 def model_converter(app, model, attr, base=UnicodeConverter):
+
     class ModelConverter_(ModelConverter, base):
+
         def __init__(self, *a, **k):
             super(ModelConverter_, self).__init__(app=app, model=model, attr=attr, *a, **k)
 
     ModelConverter_.__name__ = "{}Converter".format(model.__name__)
     return ModelConverter_
+
+
+def redirect_or_next(endpoint, **kwargs):
+    """Redirects the user back to the page they were viewing or to a specified
+    endpoint. Wraps Flasks :func:`Flask.redirect` function.
+
+    :param endpoint: The fallback endpoint.
+    """
+    return redirect(request.args.get('next') or endpoint, **kwargs)
+
+
+def flash_and_redirect(endpoint, message, level='info', next=False, **kwargs):
+    """
+    Helper to both flash and redirect to a new endpoint.
+
+    Will optionally follow a ?next=... URL param if the next parameter is
+    set to True
+    """
+    flash(message, level)
+    return redirect_or_next(endpoint, **kwargs) if next else redirect(endpoint, **kwargs)
