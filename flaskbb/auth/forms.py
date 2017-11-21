@@ -19,6 +19,7 @@ from flaskbb.user.models import User
 from flaskbb.utils.settings import flaskbb_config
 from flaskbb.utils.helpers import time_utcnow
 from flaskbb.utils.fields import RecaptchaField
+from .models import UserBlob
 
 USERNAME_RE = r'^[\w.+-]+$'
 is_valid_username = regexp(
@@ -102,6 +103,15 @@ class RegisterForm(FlaskForm):
                     primary_group_id=4,
                     language=self.language.data)
         return user.save()
+
+    def to_blob(self):
+        return UserBlob(
+            username=self.username.data,
+            email=self.email.data,
+            password=self.password.data,
+            language=self.language.data,
+            group=None
+        )
 
 
 class ReauthForm(FlaskForm):

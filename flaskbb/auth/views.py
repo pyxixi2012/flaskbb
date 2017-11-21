@@ -16,7 +16,12 @@ from flask.views import MethodView
 from flask_babelplus import gettext as _
 from flask_login import (confirm_login, current_user, login_fresh,
                          login_required, login_user, logout_user)
-
+from .services import (
+        UserDoesntExist, InvalidPassword, DuplicateUser,
+        DefaultUserAuthenticator,
+        DefaultUserLoginService,
+        DefaultUserRegistrator
+        )
 from flaskbb.auth.forms import (AccountActivationForm, ForgotPasswordForm,
                                 LoginForm, LoginRecaptchaForm, ReauthForm,
                                 RegisterForm, RequestActivationForm,
@@ -30,7 +35,6 @@ from flaskbb.utils.helpers import (anonymous_required, enforce_recaptcha,
                                    redirect_or_next, register_view,
                                    registration_enabled, render_template,
                                    requires_unactivated)
-from flaskbb.utils.settings import flaskbb_config
 from flaskbb.utils.tokens import get_token_status
 
 auth = Blueprint("auth", __name__)
@@ -77,14 +81,19 @@ limiter.limit(login_rate_limit, error_message=login_rate_limit_message)(auth)
 class Logout(MethodView):
     decorators = [limiter.exempt, login_required]
 
+    def __init__(self, login_service=None):
+        self.login_service = login_service or DefaultUserLoginService()
+
     def get(self):
-        logout_user()
-        flash(_("Logged out"), "success")
+        self.login_service.logout(current_user)
         return redirect(url_for("forum.index"))
 
 
 class Login(MethodView):
     decorators = [anonymous_required]
+
+    def __init__(self, login_service=None):
+        self.login_service = login_service or DefaultUserLoginService()
 
     def form(self):
         if enforce_recaptcha(limiter):
@@ -98,15 +107,7 @@ class Login(MethodView):
         form = self.form()
         if form.validate_on_submit():
             try:
-                user = User.authenticate(form.login.data, form.password.data)
-                if not login_user(user, remember=form.remember_me.data):
-                    flash(
-                        _(
-                            "In order to use your account you have to activate it "
-                            "through the link we have sent to your email "
-                            "address."
-                        ), "danger"
-                    )
+                self.login_service.login(form.login.data, form.password.data)
                 return redirect_or_next(url_for("forum.index"))
             except AuthenticationError:
                 flash(_("Wrong username or password."), "danger")
@@ -118,25 +119,32 @@ class Reauth(MethodView):
     decorators = [login_required, limiter.exempt]
     form = ReauthForm
 
+    def __init__(self, login_service=None):
+        self.login_service = login_service or DefaultUserLoginService()
+
     def get(self):
-        if not login_fresh():
+        if not self.login_service.has_fresh_login(current_user):
             return render_template("auth/reauth.html", form=self.form())
         return redirect_or_next(current_user.url)
 
     def post(self):
         form = self.form()
         if form.validate_on_submit():
-            if current_user.check_password(form.password.data):
-                confirm_login()
-                flash(_("Reauthenticated."), "success")
+            try:
+                self.login_service.refresh(current_user, form.password.data)
+            except InvalidPassword:
+                return render_template("auth/reauth.html", form=form)
+            else:
                 return redirect_or_next(current_user.url)
 
-            flash(_("Wrong password."), "danger")
         return render_template("auth/reauth.html", form=form)
 
 
 class Register(MethodView):
     decorators = [anonymous_required, registration_enabled]
+
+    def __init__(self, registrator=None):
+        self.registrator = registrator or DefaultUserRegistrator()
 
     def form(self):
         form = RegisterForm()
@@ -152,26 +160,12 @@ class Register(MethodView):
     def post(self):
         form = self.form()
         if form.validate_on_submit():
-            user = form.save()
-
-            if flaskbb_config["ACTIVATE_ACCOUNT"]:
-                # Any call to an expired model requires a database hit, so
-                # accessing user.id would cause an DetachedInstanceError.
-                # This happens because the `user`'s session does no longer exist.
-                # So we just fire up another query to make sure that the session
-                # for the newly created user is fresh.
-                # PS: `db.session.merge(user)` did not work for me.
-                user = User.query.filter_by(email=user.email).first()
-                send_activation_token.delay(user)
-                flash(
-                    _("An account activation email has been sent to %(email)s", email=user.email),
-                    "success"
-                )
+            try:
+                user = self.registrator.register(form.to_blob())
+            except DuplicateUser:
+                return render_template("auth/register.html", form=form)
             else:
-                login_user(user)
-                flash(_("Thanks for registering."), "success")
-
-            return redirect_or_next(url_for('forum.index'))
+                return redirect_or_next(url_for('forum.index'))
 
         return render_template("auth/register.html", form=form)
 
